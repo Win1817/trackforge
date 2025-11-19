@@ -134,7 +134,9 @@ export default function LoginPage() {
                 </Form>
             </div>
              <p className="mt-10 text-center text-sm text-muted-foreground">
-                TrackForge is a third-party application and is not affiliated with Clockify.
+                TrackForge — A powerful time-tracking and productivity manager.<br/>
+                TrackForge is a third-party application and is not affiliated with Clockify.<br/>
+                Developed by Surely Win Dilag. All rights reserved.
             </p>
         </div>
     </div>
