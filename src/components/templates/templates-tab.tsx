@@ -1,6 +1,6 @@
 'use client'
 
-import { PlusCircle, Trash, Copy } from 'lucide-react';
+import { PlusCircle, Trash, Copy, Upload, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader, PageHeaderHeading, PageHeaderDescription } from '@/components/page-header';
 import { useClockify } from '@/hooks/use-clockify';
@@ -11,7 +11,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Template } from '@/lib/types';
 import { Spinner } from '@/components/icons';
 import { TemplateEntryRow } from './template-entry-row';
@@ -194,9 +194,10 @@ function TemplateCard({ template, onEdit, onCopy, onDelete }: { template: Templa
 }
 
 export function TemplatesTab() {
-    const { templates, saveTemplate, deleteTemplate } = useClockify();
+    const { templates, saveTemplate, deleteTemplate, importTemplates, exportTemplates } = useClockify();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     
     const handleNewTemplate = () => {
         setEditingTemplate(null);
@@ -221,6 +222,21 @@ export function TemplatesTab() {
         saveTemplate(template, isNew);
     }
 
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            importTemplates(file);
+        }
+        // Reset file input to allow importing the same file again
+        if(fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
     return (
         <div className="container mx-auto">
             <PageHeader>
@@ -230,10 +246,27 @@ export function TemplatesTab() {
                         Create and manage batches of time entries to apply in bulk.
                     </PageHeaderDescription>
                 </div>
-                <Button onClick={handleNewTemplate}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    New Template
-                </Button>
+                <div className="flex items-center gap-2">
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        className="hidden"
+                        accept="application/json"
+                    />
+                    <Button variant="outline" onClick={handleImportClick}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Import
+                    </Button>
+                    <Button variant="outline" onClick={exportTemplates} disabled={templates.length === 0}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Export
+                    </Button>
+                    <Button onClick={handleNewTemplate}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        New Template
+                    </Button>
+                </div>
             </PageHeader>
             
             <TemplateForm open={isFormOpen} setOpen={setIsFormOpen} onSave={handleSave} existingTemplate={editingTemplate} />
@@ -250,7 +283,7 @@ export function TemplatesTab() {
                 )) : (
                     <Card className="col-span-full">
                         <CardContent className="pt-6 text-center text-muted-foreground">
-                            No templates created yet. Click "New Template" to get started.
+                            No templates created yet. Click "New Template" to get started, or import a file.
                         </CardContent>
                     </Card>
                 )}

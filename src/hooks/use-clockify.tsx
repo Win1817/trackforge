@@ -29,6 +29,8 @@ interface ClockifyContextType {
   saveTemplate: (template: Omit<Template, 'id'> & { id?: string }, isNew: boolean) => void;
   deleteTemplate: (templateId: string) => void;
   applyTemplate: (template: Template, dates: Date[]) => Promise<void>;
+  importTemplates: (file: File) => void;
+  exportTemplates: () => void;
 }
 
 const ClockifyContext = createContext<ClockifyContextType | undefined>(undefined);
@@ -256,6 +258,70 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     });
   }, [isConfigured, apiFetch, workspaceId, toast, fetchTimeEntries, runAsync]);
 
+    const importTemplates = (file: File) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const json = event.target?.result as string;
+                const importedTemplates: Template[] = JSON.parse(json);
+                
+                // Basic validation
+                if (!Array.isArray(importedTemplates)) {
+                    throw new Error("Invalid file format: should be an array of templates.");
+                }
+
+                // Merge with existing templates. Generate new IDs to avoid conflicts.
+                const existingIds = new Set(templates.map(t => t.id));
+                const newTemplates = importedTemplates.map(t => ({
+                    ...t,
+                    id: existingIds.has(t.id) ? crypto.randomUUID() : t.id
+                }));
+
+                const mergedTemplates = [...templates, ...newTemplates];
+                setTemplates(mergedTemplates);
+                localStorage.setItem('clockify_templates_v2', JSON.stringify(mergedTemplates));
+                
+                toast({
+                    title: "Import Successful",
+                    description: `${newTemplates.length} templates have been imported.`,
+                });
+            } catch (e: any) {
+                console.error("Import failed:", e);
+                toast({
+                    variant: "destructive",
+                    title: "Import Failed",
+                    description: e.message || "Could not parse the selected file.",
+                });
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    const exportTemplates = () => {
+        if (templates.length === 0) {
+            toast({
+                variant: "destructive",
+                title: "No Templates to Export",
+                description: "Create some templates before exporting.",
+            });
+            return;
+        }
+
+        const jsonString = JSON.stringify(templates, null, 2);
+        const blob = new Blob([jsonString], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `clockit-templates-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast({
+            title: "Export Successful",
+            description: "Your templates have been downloaded.",
+        });
+    };
 
   useEffect(() => {
     if (isConfigured) {
@@ -286,6 +352,8 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     saveTemplate,
     deleteTemplate,
     applyTemplate,
+    importTemplates,
+    exportTemplates,
   };
 
   return <ClockifyContext.Provider value={value}>{children}</ClockifyContext.Provider>;
