@@ -1,8 +1,3 @@
-Here’s a **complete professional README** for your **TrackForge WebApp**, written in a way suitable for GitHub or any project repository. It incorporates all your branding, Clockify integration, multi-ticket functionality, and the enhancements we discussed.
-
----
-
-````
 # TrackForge
 
 **TrackForge** — Master your time, streamline your workflow.  
