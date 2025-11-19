@@ -1,41 +1,34 @@
 'use client'
 
-import { PlusCircle, Trash, Calendar as CalendarIcon, Copy, X } from 'lucide-react';
+import { PlusCircle, Trash, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader, PageHeaderHeading, PageHeaderDescription } from '@/components/page-header';
 import { useClockify } from '@/hooks/use-clockify';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useFieldArray, useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { useEffect, useState } from 'react';
-import { Template, TemplateEntry } from '@/lib/types';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
-import { Switch } from '@/components/ui/switch';
+import { Template } from '@/lib/types';
 import { Spinner } from '@/components/icons';
+import { TemplateEntryRow } from './template-entry-row';
+import { DatePicker } from '../date-picker';
 
-
-const templateEntrySchema = z.object({
-    id: z.string(),
-    projectId: z.string().min(1, "Project is required"),
-    taskId: z.string().optional(),
-    description: z.string().min(1, "Description is required"),
-    startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:mm)"),
-    endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:mm)"),
-    billable: z.boolean().default(false),
-});
 
 const templateSchema = z.object({
     name: z.string().min(1, 'Template name is required'),
-    entries: z.array(templateEntrySchema).min(1, 'At least one entry is required'),
+    entries: z.array(z.object({
+        id: z.string(),
+        projectId: z.string().min(1, "Project is required"),
+        taskId: z.string().optional(),
+        description: z.string().min(1, "Description is required"),
+        startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:mm)"),
+        endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:mm)"),
+        billable: z.boolean().default(false),
+    })).min(1, 'At least one entry is required'),
 });
 
 type TemplateFormData = z.infer<typeof templateSchema>;
@@ -111,87 +104,27 @@ function TemplateForm({ open, setOpen, onSave, existingTemplate }: { open: boole
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="flex-grow overflow-hidden flex flex-col gap-4">
-                         <FormField control={form.control} name="name" render={({ field }) => (
-                            <FormItem><FormLabel>Template Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormField control={form.control} name="name" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Template Name</FormLabel>
+                                <FormControl><Input {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
                         )} />
 
                         <div className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-6">
-                            {fields.map((field, index) => {
-                                const projectId = form.watch(`entries.${index}.projectId`);
-                                return (
-                                    <div key={field.id} className="p-4 border rounded-lg relative space-y-4 bg-card">
-                                        <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => remove(index)}>
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <Controller
-                                                control={form.control}
-                                                name={`entries.${index}.projectId`}
-                                                render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Project</FormLabel>
-                                                    <Select onValueChange={(value) => { field.onChange(value); handleProjectChange(value); }} value={field.value}>
-                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
-                                                        <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                                                    </Select>
-                                                    <FormMessage />
-                                                </FormItem>
-                                                )}
-                                            />
-                                            <Controller
-                                                control={form.control}
-                                                name={`entries.${index}.taskId`}
-                                                render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Task</FormLabel>
-                                                    <Select onValueChange={field.onChange} value={field.value} disabled={!projectId}>
-                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select task" /></SelectTrigger></FormControl>
-                                                        <SelectContent>{(tasksByProject[projectId] || []).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
-                                                    </Select>
-                                                    <FormMessage />
-                                                </FormItem>
-                                                )}
-                                            />
-                                        </div>
-                                         <Controller
-                                            control={form.control}
-                                            name={`entries.${index}.description`}
-                                            render={({ field }) => (
-                                                <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field} rows={2} /></FormControl><FormMessage /></FormItem>
-                                            )}
-                                        />
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 items-end">
-                                            <Controller
-                                                control={form.control}
-                                                name={`entries.${index}.startTime`}
-                                                render={({ field }) => (
-                                                    <FormItem><FormLabel>Start Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
-                                                )}
-                                            />
-                                            <Controller
-                                                control={form.control}
-                                                name={`entries.${index}.endTime`}
-                                                render={({ field }) => (
-                                                    <FormItem><FormLabel>End Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
-                                                )}
-                                            />
-                                            <Controller
-                                                control={form.control}
-                                                name={`entries.${index}.billable`}
-                                                render={({ field }) => (
-                                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm h-10 bg-background">
-                                                        <FormLabel>Billable</FormLabel>
-                                                        <FormControl>
-                                                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                                        </FormControl>
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-                            )}
-                         </div>
+                            {fields.map((field, index) => (
+                                <TemplateEntryRow
+                                    key={field.id}
+                                    form={form}
+                                    index={index}
+                                    projects={projects}
+                                    tasksByProject={tasksByProject}
+                                    onProjectChange={handleProjectChange}
+                                    onRemove={() => remove(index)}
+                                />
+                            ))}
+                        </div>
 
                         <Button type="button" variant="outline" onClick={addNewEntry}>
                             <PlusCircle className="mr-2 h-4 w-4" /> Add Entry to Batch
@@ -211,12 +144,11 @@ function TemplateForm({ open, setOpen, onSave, existingTemplate }: { open: boole
 function TemplateCard({ template, onEdit, onCopy, onDelete }: { template: Template, onEdit: () => void, onCopy: () => void, onDelete: () => void }) {
     const { applyTemplate, loading } = useClockify();
     const [dates, setDates] = useState<Date[] | undefined>([]);
-    const [popoverOpen, setPopoverOpen] = useState(false);
 
     const handleApply = () => {
         if(dates && dates.length > 0) {
-            applyTemplate(template.id, dates);
-            setPopoverOpen(false);
+            applyTemplate(template, dates);
+            setDates([]);
         }
     }
     
@@ -231,6 +163,7 @@ function TemplateCard({ template, onEdit, onCopy, onDelete }: { template: Templa
     const hours = Math.floor(totalDuration / (1000 * 60 * 60));
     const minutes = Math.floor((totalDuration % (1000 * 60 * 60)) / (1000 * 60));
 
+    const isLoading = loading[`applyTemplate-${template.id}`];
 
     return (
          <Card>
@@ -248,29 +181,13 @@ function TemplateCard({ template, onEdit, onCopy, onDelete }: { template: Templa
             </CardHeader>
             <CardContent className="flex justify-between items-center">
                  <Button onClick={onEdit}>Edit Template</Button>
-                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                    <PopoverTrigger asChild>
-                        <Button>
-                            {loading[`applyTemplate-${template.id}`] ? <Spinner className="mr-2 animate-spin"/> : <CalendarIcon className="mr-2 h-4 w-4" />}
-                            Apply to...
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="multiple"
-                        min={0}
-                        selected={dates}
-                        onSelect={setDates}
-                        initialFocus
-                      />
-                       <div className="p-2 border-t">
-                            <Button onClick={handleApply} disabled={!dates || dates.length === 0 || loading[`applyTemplate-${template.id}`]} className="w-full">
-                                {loading[`applyTemplate-${template.id}`] ? <Spinner className="mr-2 animate-spin"/> : null}
-                                Apply to {dates?.length || 0} date(s)
-                            </Button>
-                       </div>
-                    </PopoverContent>
-                  </Popover>
+                 <DatePicker
+                    multi
+                    dates={dates}
+                    setDates={setDates}
+                    onApply={handleApply}
+                    isLoading={isLoading}
+                 />
             </CardContent>
         </Card>
     );
@@ -295,7 +212,6 @@ export function TemplatesTab() {
         const newTemplate = {
             ...template,
             name: `${template.name} (Copy)`,
-            id: crypto.randomUUID(), // create a new id
         }
         saveTemplate(newTemplate, true);
     }

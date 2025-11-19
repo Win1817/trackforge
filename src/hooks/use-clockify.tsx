@@ -28,7 +28,7 @@ interface ClockifyContextType {
   sheetEntry: TimeEntry | null;
   saveTemplate: (template: Omit<Template, 'id'> & { id?: string }, isNew: boolean) => void;
   deleteTemplate: (templateId: string) => void;
-  applyTemplate: (templateId: string, dates: Date[]) => Promise<void>;
+  applyTemplate: (template: Template, dates: Date[]) => Promise<void>;
 }
 
 const ClockifyContext = createContext<ClockifyContextType | undefined>(undefined);
@@ -103,6 +103,7 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     setError(prev => ({ ...prev, [key]: null }));
     try {
       const result = await asyncFn();
+      setLoading(prev => ({ ...prev, [key]: false }));
       return result;
     } catch (e: any) {
       setError(prev => ({ ...prev, [key]: e.message }));
@@ -111,9 +112,8 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
         title: "An error occurred",
         description: e.message,
       });
-      return undefined;
-    } finally {
       setLoading(prev => ({ ...prev, [key]: false }));
+      return undefined;
     }
   }, [toast]);
 
@@ -206,11 +206,10 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     toast({ title: "Success", description: "Template deleted." });
   };
 
-  const applyTemplate = useCallback(async (templateId: string, dates: Date[]) => {
-    const template = templates.find(t => t.id === templateId);
-    if (!template || !isConfigured || dates.length === 0) return;
+  const applyTemplate = useCallback(async (template: Template, dates: Date[]) => {
+    if (!isConfigured || dates.length === 0) return;
 
-    const key = `applyTemplate-${templateId}`;
+    const key = `applyTemplate-${template.id}`;
     await runAsync(key, async () => {
       let successCount = 0;
       let errorCount = 0;
@@ -250,12 +249,12 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
       await Promise.all(allPromises);
 
       toast({
-          title: "Template Application Complete",
+          title: "Application Complete",
           description: `${successCount} entries created across ${dates.length} day(s). ${errorCount > 0 ? `${errorCount} failed.` : ''}`
       });
       fetchTimeEntries();
     });
-  }, [templates, isConfigured, apiFetch, workspaceId, toast, fetchTimeEntries, runAsync]);
+  }, [isConfigured, apiFetch, workspaceId, toast, fetchTimeEntries, runAsync]);
 
 
   useEffect(() => {
