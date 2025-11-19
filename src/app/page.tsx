@@ -7,29 +7,40 @@ import { DashboardTab } from '@/components/dashboard/dashboard-tab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserNav } from '@/components/user-nav';
 import { useClockify } from '@/hooks/use-clockify';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TimeEntryForm } from '@/components/dashboard/time-entry-form';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ListPlus, PlusCircle } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { DateRange } from 'react-day-picker';
-import { addDays, format } from 'date-fns';
-import { Input } from '@/components/ui/input';
-import { CalendarIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
+
 
 export default function DashboardPage() {
   const { isConfigured, setSheetOpen } = useClockify();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showBatchForm, setShowBatchForm] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isConfigured === false) { // Use explicit false check to avoid redirect during initial load
+      router.push('/login');
+    }
+  }, [isConfigured, router]);
+
+  if (!isConfigured) {
+    // Render a loading state or null while we check for credentials
+    // This prevents a flash of the dashboard before the redirect happens
+    return (
+        <div className="h-screen w-full flex items-center justify-center bg-background">
+            <Logo className="h-12 w-12 animate-pulse" />
+        </div>
+    );
+  }
   
   return (
     <>
       <div className="flex-col md:flex">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <div className="border-b">
+            <div className="border-b border-border">
               <div className="flex h-16 items-center px-4 md:px-6">
                 <div className="flex items-center text-lg font-bold text-primary">
                     <Logo className="h-6 w-6" />
@@ -38,7 +49,7 @@ export default function DashboardPage() {
                 
                 <TabsList className="mx-auto">
                   <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-                  <TabsTrigger value="templates" disabled={!isConfigured}>Templates</TabsTrigger>
+                  <TabsTrigger value="templates">Templates</TabsTrigger>
                   <TabsTrigger value="settings">Settings</TabsTrigger>
                 </TabsList>
 
@@ -60,14 +71,6 @@ export default function DashboardPage() {
               </div>
             </div>
             <main className="flex-1 space-y-4 p-4 md:p-6">
-                {!isConfigured && (
-                    <Alert className="mb-4 max-w-2xl mx-auto">
-                        <AlertTitle>Welcome to TrackForge!</AlertTitle>
-                        <AlertDescription>
-                            To get started, please go to the settings tab and enter your Clockify API Key and Workspace ID.
-                        </AlertDescription>
-                    </Alert>
-                )}
                 <TabsContent value="dashboard" className="space-y-4 mt-0">
                   <DashboardTab showBatchForm={showBatchForm} />
                 </TabsContent>

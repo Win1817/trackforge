@@ -9,8 +9,8 @@ const CLOCKIFY_API_URL = 'https://api.clockify.me/api/v1';
 interface ClockifyContextType {
   apiKey: string | null;
   workspaceId: string | null;
-  setCredentials: (apiKey: string, workspaceId: string) => void;
-  isConfigured: boolean;
+  setCredentials: (apiKey: string | null, workspaceId: string | null) => void;
+  isConfigured: boolean | undefined;
   user: ClockifyUser | null;
   projects: Project[];
   timeEntries: TimeEntry[];
@@ -38,6 +38,7 @@ const ClockifyContext = createContext<ClockifyContextType | undefined>(undefined
 export const ClockifyProvider = ({ children }: { children: React.ReactNode }) => {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [isConfigured, setIsConfigured] = useState<boolean | undefined>(undefined);
   const [user, setUser] = useState<ClockifyUser | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
@@ -55,30 +56,50 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     setSheetEntry(entry);
     _setSheetOpen(open);
   };
-
+  
   useEffect(() => {
-    const storedApiKey = localStorage.getItem('clockify_api_key');
-    const storedWorkspaceId = localStorage.getItem('clockify_workspace_id');
-    const storedTemplates = localStorage.getItem('clockify_templates_v2');
-    if (storedApiKey) setApiKey(storedApiKey);
-    if (storedWorkspaceId) setWorkspaceId(storedWorkspaceId);
-    if(storedTemplates) {
-      setTemplates(JSON.parse(storedTemplates));
+    try {
+      const storedApiKey = localStorage.getItem('clockify_api_key');
+      const storedWorkspaceId = localStorage.getItem('clockify_workspace_id');
+      const storedTemplates = localStorage.getItem('clockify_templates_v2');
+
+      if (storedApiKey && storedWorkspaceId) {
+        setApiKey(storedApiKey);
+        setWorkspaceId(storedWorkspaceId);
+        setIsConfigured(true);
+      } else {
+        setIsConfigured(false);
+      }
+
+      if(storedTemplates) {
+        setTemplates(JSON.parse(storedTemplates));
+      }
+    } catch (e) {
+      console.error("Could not access localStorage. Running in a server environment?");
+      setIsConfigured(false);
     }
   }, []);
 
-  const setCredentials = (newApiKey: string, newWorkspaceId: string) => {
-    localStorage.setItem('clockify_api_key', newApiKey);
-    localStorage.setItem('clockify_workspace_id', newWorkspaceId);
-    setApiKey(newApiKey);
-    setWorkspaceId(newWorkspaceId);
+  const setCredentials = (newApiKey: string | null, newWorkspaceId: string | null) => {
+    if (newApiKey && newWorkspaceId) {
+        localStorage.setItem('clockify_api_key', newApiKey);
+        localStorage.setItem('clockify_workspace_id', newWorkspaceId);
+        setApiKey(newApiKey);
+        setWorkspaceId(newWorkspaceId);
+        setIsConfigured(true);
+    } else {
+        localStorage.removeItem('clockify_api_key');
+        localStorage.removeItem('clockify_workspace_id');
+        setApiKey(null);
+        setWorkspaceId(null);
+        setUser(null);
+        setIsConfigured(false);
+    }
   };
-
-  const isConfigured = !!apiKey && !!workspaceId;
 
   const apiFetch = useCallback(async (endpoint: string, options: RequestInit = {}) => {
     if (!apiKey || !workspaceId) {
-        console.error('API Key or Workspace ID is not configured.');
+        setIsConfigured(false);
         throw new Error('API Key or Workspace ID is not configured.');
     }
     
@@ -92,10 +113,12 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        setCredentials(null, null); // Clear credentials on auth error
+      }
       const errorData = await response.json();
       throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
-    // Some DELETE requests return 204 with no content
     if (response.status === 204) return;
     return response.json();
   }, [apiKey, workspaceId]);
@@ -265,12 +288,10 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
                 const json = event.target?.result as string;
                 const importedTemplates: Template[] = JSON.parse(json);
                 
-                // Basic validation
                 if (!Array.isArray(importedTemplates)) {
                     throw new Error("Invalid file format: should be an array of templates.");
                 }
 
-                // Merge with existing templates. Generate new IDs to avoid conflicts.
                 const existingIds = new Set(templates.map(t => t.id));
                 const newTemplates = importedTemplates.map(t => ({
                     ...t,
@@ -326,6 +347,8 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
   useEffect(() => {
     if (isConfigured) {
       fetchCurrentUser();
+    } else {
+      setUser(null);
     }
   }, [isConfigured, fetchCurrentUser]);
 

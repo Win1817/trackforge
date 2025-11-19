@@ -13,10 +13,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useClockify } from '@/hooks/use-clockify';
 import { User, LifeBuoy, LogOut, Settings } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useMemo } from 'react';
 
 export function UserNav() {
-  const { user, isConfigured, setSheetOpen } = useClockify();
+  const { user, isConfigured, setCredentials } = useClockify();
+  const router = useRouter();
 
   const userInitials = useMemo(() => {
     if (user?.name) {
@@ -30,20 +32,23 @@ export function UserNav() {
   }, [user?.name]);
 
   const handleSettingsClick = () => {
-    // This is a workaround to navigate to the settings tab.
-    // In a real SPA, you'd use a router or state management.
     const settingsTrigger = document.querySelector('button[data-radix-collection-item][value="settings"]');
     if (settingsTrigger instanceof HTMLElement) {
       settingsTrigger.click();
     }
   }
 
+  const handleLogout = () => {
+    setCredentials(null, null);
+    router.push('/login');
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
           <Avatar className="h-10 w-10">
-            {isConfigured && user?.profilePicture && <AvatarImage src={user.profilePicture} alt={user.name} />}
+            {isConfigured && user?.profilePicture ? <AvatarImage src={user.profilePicture} alt={user.name || 'User'} /> : null }
             <AvatarFallback>
               {isConfigured && user ? userInitials : <User className="h-5 w-5" />}
             </AvatarFallback>
@@ -79,7 +84,7 @@ export function UserNav() {
           <LifeBuoy className="mr-2" />
           <span>Support</span>
         </DropdownMenuItem>
-        <DropdownMenuItem disabled>
+        <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
           <LogOut className="mr-2" />
           <span>Log out</span>
         </DropdownMenuItem>
