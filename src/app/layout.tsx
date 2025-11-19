@@ -6,7 +6,6 @@ import { ClockifyProvider } from '@/hooks/use-clockify';
 import { cn } from '@/lib/utils';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
-const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
 export const metadata: Metadata = {
   title: 'TrackForge',
@@ -26,7 +25,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
         <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
       </head>
-      <body className={cn("font-sans antialiased dark", inter.variable, jetbrainsMono.variable)}>
+      <body className={cn("font-sans antialiased dark", inter.variable)}>
         <ClockifyProvider>
             {children}
         </ClockifyProvider>
