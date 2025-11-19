@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { ClockifyUser, Project, Task, TimeEntry, TimeEntryRequest, Template } from '@/lib/types';
+import type { ClockifyUser, Project, Task, TimeEntry, TimeEntryRequest, Template, TemplateEntry } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 const CLOCKIFY_API_URL = 'https://api.clockify.me/api/v1';
@@ -75,9 +75,9 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
   const isConfigured = !!apiKey && !!workspaceId;
 
   const apiFetch = useCallback(async (endpoint: string, options: RequestInit = {}) => {
-    if (!isConfigured) {
+    if (!apiKey || !workspaceId) {
         console.error('API Key or Workspace ID is not configured.');
-        return;
+        throw new Error('API Key or Workspace ID is not configured.');
     }
     
     const response = await fetch(`${CLOCKIFY_API_URL}${endpoint}`, {
@@ -96,7 +96,7 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     // Some DELETE requests return 204 with no content
     if (response.status === 204) return;
     return response.json();
-  }, [apiKey, isConfigured]);
+  }, [apiKey, workspaceId]);
 
   const runAsync = useCallback(async <T,>(key: string, asyncFn: () => Promise<T>): Promise<T | undefined> => {
     setLoading(prev => ({ ...prev, [key]: true }));
@@ -211,11 +211,11 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     if (!template || !isConfigured || dates.length === 0) return;
 
     const key = `applyTemplate-${templateId}`;
-    setLoading(prev => ({ ...prev, [key]: true }));
-    let successCount = 0;
-    let errorCount = 0;
+    await runAsync(key, async () => {
+      let successCount = 0;
+      let errorCount = 0;
 
-    const promises = dates.flatMap(date => 
+      const allPromises = dates.flatMap(date => 
         template.entries.map(entry => {
             const [startHours, startMinutes] = entry.startTime.split(':').map(Number);
             const [endHours, endMinutes] = entry.endTime.split(':').map(Number);
@@ -238,22 +238,24 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
             return apiFetch(`/workspaces/${workspaceId}/time-entries`, {
                 method: 'POST',
                 body: JSON.stringify(payload),
-            }).then(() => successCount++).catch(e => {
+            }).then(() => {
+                successCount++;
+            }).catch(e => {
                 console.error(`Failed to create entry for ${entry.description} on ${date.toLocaleDateString()}`, e);
                 errorCount++;
             });
         })
-    );
-    
-    await Promise.all(promises);
-    
-    setLoading(prev => ({ ...prev, [key]: false }));
-    toast({
-        title: "Template Application Complete",
-        description: `${successCount} entries created across ${dates.length} day(s). ${errorCount > 0 ? `${errorCount} failed.` : ''}`
+      );
+      
+      await Promise.all(allPromises);
+
+      toast({
+          title: "Template Application Complete",
+          description: `${successCount} entries created across ${dates.length} day(s). ${errorCount > 0 ? `${errorCount} failed.` : ''}`
+      });
+      fetchTimeEntries();
     });
-    fetchTimeEntries();
-}, [templates, isConfigured, apiFetch, workspaceId, toast, fetchTimeEntries]);
+  }, [templates, isConfigured, apiFetch, workspaceId, toast, fetchTimeEntries, runAsync]);
 
 
   useEffect(() => {
@@ -287,9 +289,7 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     applyTemplate,
   };
 
-  return (
-    <ClockifyContext.Provider value={value}>{children}</ClockifyContext.Provider>
-  );
+  return <ClockifyContext.Provider value={value}>{children}</ClockifyContext.Provider>;
 };
 
 export const useClockify = (): ClockifyContextType => {
@@ -299,5 +299,3 @@ export const useClockify = (): ClockifyContextType => {
   }
   return context;
 };
-
-    

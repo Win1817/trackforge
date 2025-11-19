@@ -60,11 +60,12 @@ function TemplateForm({ open, setOpen, onSave, existingTemplate }: { open: boole
     
     useEffect(() => {
         if(existingTemplate) {
+            const newEntries = existingTemplate.entries.map(e => ({...e, id: crypto.randomUUID()}));
             form.reset({
                 name: existingTemplate.name,
-                entries: existingTemplate.entries.map(e => ({...e}))
+                entries: newEntries
             });
-            existingTemplate.entries.forEach((entry) => {
+            newEntries.forEach((entry) => {
                 if (entry.projectId) {
                     handleProjectChange(entry.projectId);
                 }
@@ -275,25 +276,10 @@ function TemplateCard({ template, onEdit, onCopy, onDelete }: { template: Templa
     );
 }
 
-export default function TemplatesPage() {
-    const { templates, saveTemplate, deleteTemplate, isConfigured } = useClockify();
+export function TemplatesTab() {
+    const { templates, saveTemplate, deleteTemplate } = useClockify();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
-    
-    if (!isConfigured) {
-        return (
-             <div className="container max-w-2xl mx-auto">
-                <PageHeader>
-                    <div>
-                        <PageHeaderHeading>Templates</PageHeaderHeading>
-                        <PageHeaderDescription>
-                            Please configure your API Key in settings to use templates.
-                        </PageHeaderDescription>
-                    </div>
-                </PageHeader>
-            </div>
-        )
-    }
     
     const handleNewTemplate = () => {
         setEditingTemplate(null);
@@ -320,7 +306,7 @@ export default function TemplatesPage() {
     }
 
     return (
-        <div className="container mx-auto py-8">
+        <div className="container mx-auto">
             <PageHeader>
                 <div>
                     <PageHeaderHeading>Templates</PageHeaderHeading>
@@ -356,5 +342,3 @@ export default function TemplatesPage() {
         </div>
     );
 }
-
-    

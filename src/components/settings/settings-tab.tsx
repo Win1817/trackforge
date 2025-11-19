@@ -3,7 +3,7 @@
 import { PageHeader, PageHeaderHeading, PageHeaderDescription } from '@/components/page-header';
 import { SettingsForm } from '@/components/settings/settings-form';
 
-export default function SettingsPage() {
+export function SettingsTab() {
   return (
     <div className="container max-w-2xl mx-auto">
       <PageHeader>
