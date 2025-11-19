@@ -38,6 +38,10 @@ export function UserNav() {
     }
   }
 
+  const handleSupportClick = () => {
+    window.location.href = 'mailto:support@trackforge.com?subject=TrackForge Support Request';
+  };
+
   const handleLogout = () => {
     setCredentials(null, null);
     router.push('/login');
@@ -80,7 +84,7 @@ export function UserNav() {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
+        <DropdownMenuItem onClick={handleSupportClick} className="cursor-pointer">
           <LifeBuoy className="mr-2" />
           <span>Support</span>
         </DropdownMenuItem>
