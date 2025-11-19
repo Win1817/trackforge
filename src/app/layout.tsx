@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 
 
 export const metadata: Metadata = {
-  title: 'ClockIT Pro',
+  title: 'ClockIT',
   description: 'A professional, web-based Clockify Time Entry Tool.',
 };
 

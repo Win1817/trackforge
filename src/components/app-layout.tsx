@@ -29,7 +29,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Button variant="ghost" className="h-10 w-full justify-start px-2 text-lg font-bold" asChild>
                 <Link href="/">
                     <Logo className="h-6 w-6" />
-                    <span className="ml-2">ClockIT Pro</span>
+                    <span className="ml-2">ClockIT</span>
                 </Link>
             </Button>
           </SidebarHeader>
