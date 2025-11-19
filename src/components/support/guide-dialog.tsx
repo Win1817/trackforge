@@ -48,7 +48,7 @@ export function GuideDialog({ open, onOpenChange }: GuideDialogProps) {
                             <p>To use TrackForge, you need to provide your Clockify API Key and Workspace ID.</p>
                             <ol className="list-decimal list-inside space-y-1 pl-2">
                                 <li><strong>API Key:</strong> You can find this in your Clockify account under `Profile Settings` → `API`.</li>
-                                <li><strong>Workspace ID:</strong> Navigate to any workspace's `Settings`. The ID is in the URL: `https://app.clockify.me/workspaces/{workspaceId}/settings`.</li>
+                                <li><strong>Workspace ID:</strong> Navigate to any workspace's `Settings`. The ID is in the URL: `https://app.clockify.me/workspaces/{'{workspaceId}'}/settings`.</li>
                             </ol>
                             <p>Enter these on the Sign-In page. Your credentials are stored securely in your browser's local storage and are never sent anywhere except directly to the Clockify API.</p>
                         </AccordionContent>
