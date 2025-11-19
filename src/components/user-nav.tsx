@@ -14,11 +14,13 @@ import {
 import { useClockify } from '@/hooks/use-clockify';
 import { User, LifeBuoy, LogOut, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { GuideDialog } from './support/guide-dialog';
 
 export function UserNav() {
   const { user, isConfigured, setCredentials } = useClockify();
   const router = useRouter();
+  const [guideOpen, setGuideOpen] = useState(false);
 
   const userInitials = useMemo(() => {
     if (user?.name) {
@@ -38,16 +40,13 @@ export function UserNav() {
     }
   }
 
-  const handleSupportClick = () => {
-    window.location.href = 'mailto:support@trackforge.com?subject=TrackForge Support Request';
-  };
-
   const handleLogout = () => {
     setCredentials(null, null);
     router.push('/login');
   };
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -84,7 +83,7 @@ export function UserNav() {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSupportClick} className="cursor-pointer">
+        <DropdownMenuItem onClick={() => setGuideOpen(true)} className="cursor-pointer">
           <LifeBuoy className="mr-2" />
           <span>Support</span>
         </DropdownMenuItem>
@@ -94,5 +93,7 @@ export function UserNav() {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    <GuideDialog open={guideOpen} onOpenChange={setGuideOpen} />
+    </>
   );
 }
