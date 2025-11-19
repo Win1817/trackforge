@@ -26,7 +26,7 @@ interface ClockifyContextType {
   sheetOpen: boolean;
   setSheetOpen: (open: boolean, entry?: TimeEntry | null) => void;
   sheetEntry: TimeEntry | null;
-  saveTemplate: (template: Omit<Template, 'id'> & { id?: string }) => void;
+  saveTemplate: (template: Omit<Template, 'id'> & { id?: string }, isNew: boolean) => void;
   deleteTemplate: (templateId: string) => void;
   applyTemplate: (templateId: string, dates: Date[]) => Promise<void>;
 }
@@ -57,39 +57,11 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
   useEffect(() => {
     const storedApiKey = localStorage.getItem('clockify_api_key');
     const storedWorkspaceId = localStorage.getItem('clockify_workspace_id');
-    const storedTemplates = localStorage.getItem('clockify_templates_v2'); // Use new key for new structure
+    const storedTemplates = localStorage.getItem('clockify_templates_v2');
     if (storedApiKey) setApiKey(storedApiKey);
     if (storedWorkspaceId) setWorkspaceId(storedWorkspaceId);
     if(storedTemplates) {
       setTemplates(JSON.parse(storedTemplates));
-    } else {
-      // Migration from old single-entry templates
-      const oldTemplates = localStorage.getItem('clockify_templates');
-      if (oldTemplates) {
-        try {
-          const parsedOld = JSON.parse(oldTemplates);
-          if (Array.isArray(parsedOld)) {
-            const newTemplates = parsedOld.map((t: any) => ({
-              id: t.id,
-              name: t.name,
-              entries: [{
-                id: crypto.randomUUID(),
-                projectId: t.projectId,
-                taskId: t.taskId,
-                description: t.description,
-                startTime: '09:00',
-                endTime: '17:00',
-                billable: false,
-              }]
-            }));
-            setTemplates(newTemplates);
-            localStorage.setItem('clockify_templates_v2', JSON.stringify(newTemplates));
-            localStorage.removeItem('clockify_templates');
-          }
-        } catch(e) {
-            console.error("Failed to migrate old templates", e)
-        }
-      }
     }
   }, []);
 
@@ -215,16 +187,16 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     return false;
   }, [apiFetch, runAsync, isConfigured, workspaceId, toast, fetchTimeEntries]);
 
-  const saveTemplate = (template: Omit<Template, 'id'> & { id?: string }) => {
+  const saveTemplate = (template: Omit<Template, 'id'> & { id?: string }, isNew: boolean) => {
     let newTemplates;
-    if (template.id) {
-        newTemplates = templates.map(t => t.id === template.id ? { ...t, ...template } : t);
-    } else {
+    if (isNew) {
         newTemplates = [...templates, { ...template, id: crypto.randomUUID() }];
+    } else {
+        newTemplates = templates.map(t => t.id === template.id ? { ...t, ...template } as Template : t);
     }
     setTemplates(newTemplates);
     localStorage.setItem('clockify_templates_v2', JSON.stringify(newTemplates));
-    toast({ title: "Success", description: "Template saved." });
+    toast({ title: "Success", description: `Template ${isNew ? 'created' : 'updated'}.` });
   };
 
   const deleteTemplate = (templateId: string) => {
@@ -238,12 +210,13 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     const template = templates.find(t => t.id === templateId);
     if (!template || !isConfigured || dates.length === 0) return;
 
-    setLoading(prev => ({ ...prev, [`applyTemplate-${templateId}`]: true }));
+    const key = `applyTemplate-${templateId}`;
+    setLoading(prev => ({ ...prev, [key]: true }));
     let successCount = 0;
     let errorCount = 0;
 
-    for (const date of dates) {
-        for (const entry of template.entries) {
+    const promises = dates.flatMap(date => 
+        template.entries.map(entry => {
             const [startHours, startMinutes] = entry.startTime.split(':').map(Number);
             const [endHours, endMinutes] = entry.endTime.split(':').map(Number);
             
@@ -262,26 +235,26 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
                 billable: entry.billable
             };
 
-            try {
-                await apiFetch(`/workspaces/${workspaceId}/time-entries`, {
-                    method: 'POST',
-                    body: JSON.stringify(payload),
-                });
-                successCount++;
-            } catch (e) {
+            return apiFetch(`/workspaces/${workspaceId}/time-entries`, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            }).then(() => successCount++).catch(e => {
                 console.error(`Failed to create entry for ${entry.description} on ${date.toLocaleDateString()}`, e);
                 errorCount++;
-            }
-        }
-    }
+            });
+        })
+    );
     
-    setLoading(prev => ({ ...prev, [`applyTemplate-${templateId}`]: false }));
+    await Promise.all(promises);
+    
+    setLoading(prev => ({ ...prev, [key]: false }));
     toast({
-        title: "Template Applied",
+        title: "Template Application Complete",
         description: `${successCount} entries created across ${dates.length} day(s). ${errorCount > 0 ? `${errorCount} failed.` : ''}`
     });
     fetchTimeEntries();
 }, [templates, isConfigured, apiFetch, workspaceId, toast, fetchTimeEntries]);
+
 
   useEffect(() => {
     if (isConfigured) {
@@ -314,7 +287,9 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     applyTemplate,
   };
 
-  return <ClockifyContext.Provider value={value}>{children}</ClockifyContext.Provider>;
+  return (
+    <ClockifyContext.Provider value={value}>{children}</ClockifyContext.Provider>
+  );
 };
 
 export const useClockify = (): ClockifyContextType => {
@@ -324,3 +299,5 @@ export const useClockify = (): ClockifyContextType => {
   }
   return context;
 };
+
+    

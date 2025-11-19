@@ -49,7 +49,7 @@ function TemplateForm({ open, setOpen, onSave, existingTemplate }: { open: boole
         defaultValues: { name: '', entries: [] },
     });
     
-    const { fields, append, remove, update } = useFieldArray({
+    const { fields, append, remove } = useFieldArray({
         control: form.control,
         name: "entries",
     });
@@ -64,9 +64,9 @@ function TemplateForm({ open, setOpen, onSave, existingTemplate }: { open: boole
                 name: existingTemplate.name,
                 entries: existingTemplate.entries.map(e => ({...e}))
             });
-            existingTemplate.entries.forEach((entry, index) => {
+            existingTemplate.entries.forEach((entry) => {
                 if (entry.projectId) {
-                    handleProjectChange(entry.projectId, index);
+                    handleProjectChange(entry.projectId);
                 }
             })
         } else {
@@ -74,7 +74,7 @@ function TemplateForm({ open, setOpen, onSave, existingTemplate }: { open: boole
         }
     }, [existingTemplate, form, open]);
 
-    const handleProjectChange = async (projectId: string, index: number) => {
+    const handleProjectChange = async (projectId: string) => {
         if (!tasksByProject[projectId]) {
             const fetchedTasks = await fetchTasks(projectId);
             if (fetchedTasks) {
@@ -105,7 +105,7 @@ function TemplateForm({ open, setOpen, onSave, existingTemplate }: { open: boole
                 <DialogHeader>
                     <DialogTitle>{existingTemplate ? 'Edit' : 'New'} Template</DialogTitle>
                     <DialogDescription>
-                        {existingTemplate ? 'Edit your' : 'Create a new'} daily time entry template. Add multiple entries to build a full day schedule.
+                        {existingTemplate ? 'Edit your' : 'Create a new'} batch of time entries. Add multiple entries to build a full day schedule or a collection of tasks.
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -118,7 +118,7 @@ function TemplateForm({ open, setOpen, onSave, existingTemplate }: { open: boole
                             {fields.map((field, index) => {
                                 const projectId = form.watch(`entries.${index}.projectId`);
                                 return (
-                                    <div key={field.id} className="p-4 border rounded-lg relative space-y-4">
+                                    <div key={field.id} className="p-4 border rounded-lg relative space-y-4 bg-card">
                                         <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => remove(index)}>
                                             <X className="h-4 w-4" />
                                         </Button>
@@ -129,7 +129,7 @@ function TemplateForm({ open, setOpen, onSave, existingTemplate }: { open: boole
                                                 render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>Project</FormLabel>
-                                                    <Select onValueChange={(value) => { field.onChange(value); handleProjectChange(value, index); }} value={field.value}>
+                                                    <Select onValueChange={(value) => { field.onChange(value); handleProjectChange(value); }} value={field.value}>
                                                         <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
                                                         <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                                                     </Select>
@@ -178,7 +178,7 @@ function TemplateForm({ open, setOpen, onSave, existingTemplate }: { open: boole
                                                 control={form.control}
                                                 name={`entries.${index}.billable`}
                                                 render={({ field }) => (
-                                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm h-10">
+                                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm h-10 bg-background">
                                                         <FormLabel>Billable</FormLabel>
                                                         <FormControl>
                                                             <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -193,10 +193,10 @@ function TemplateForm({ open, setOpen, onSave, existingTemplate }: { open: boole
                          </div>
 
                         <Button type="button" variant="outline" onClick={addNewEntry}>
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add Entry
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Entry to Batch
                         </Button>
                         
-                        <DialogFooter className="pt-4">
+                        <DialogFooter className="pt-4 border-t">
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
                             <Button type="submit">Save Template</Button>
                         </DialogFooter>
@@ -251,7 +251,7 @@ function TemplateCard({ template, onEdit, onCopy, onDelete }: { template: Templa
                     <PopoverTrigger asChild>
                         <Button>
                             {loading[`applyTemplate-${template.id}`] ? <Spinner className="mr-2 animate-spin"/> : <CalendarIcon className="mr-2 h-4 w-4" />}
-                            Apply
+                            Apply to...
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
@@ -264,6 +264,7 @@ function TemplateCard({ template, onEdit, onCopy, onDelete }: { template: Templa
                       />
                        <div className="p-2 border-t">
                             <Button onClick={handleApply} disabled={!dates || dates.length === 0 || loading[`applyTemplate-${template.id}`]} className="w-full">
+                                {loading[`applyTemplate-${template.id}`] ? <Spinner className="mr-2 animate-spin"/> : null}
                                 Apply to {dates?.length || 0} date(s)
                             </Button>
                        </div>
@@ -308,9 +309,14 @@ export default function TemplatesPage() {
         const newTemplate = {
             ...template,
             name: `${template.name} (Copy)`,
-            id: undefined, // remove id to create a new one
+            id: crypto.randomUUID(), // create a new id
         }
-        saveTemplate(newTemplate);
+        saveTemplate(newTemplate, true);
+    }
+    
+    const handleSave = (template: Omit<Template, 'id'> & { id?: string }) => {
+        const isNew = !template.id;
+        saveTemplate(template, isNew);
     }
 
     return (
@@ -319,7 +325,7 @@ export default function TemplatesPage() {
                 <div>
                     <PageHeaderHeading>Templates</PageHeaderHeading>
                     <PageHeaderDescription>
-                        Create and manage your daily time entry schedules.
+                        Create and manage batches of time entries to apply in bulk.
                     </PageHeaderDescription>
                 </div>
                 <Button onClick={handleNewTemplate}>
@@ -328,7 +334,7 @@ export default function TemplatesPage() {
                 </Button>
             </PageHeader>
             
-            <TemplateForm open={isFormOpen} setOpen={setIsFormOpen} onSave={saveTemplate} existingTemplate={editingTemplate} />
+            <TemplateForm open={isFormOpen} setOpen={setIsFormOpen} onSave={handleSave} existingTemplate={editingTemplate} />
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {templates.length > 0 ? templates.map(template => (
@@ -350,3 +356,5 @@ export default function TemplatesPage() {
         </div>
     );
 }
+
+    
