@@ -1,8 +1,8 @@
 {
-  "name": "clockit",
+  "name": "trackforge",
   "version": "0.1.0",
   "private": true,
-  "description": "A professional, web-based Clockify Time Entry Tool.",
+  "description": "A professional, web-based Time Entry Tool.",
   "scripts": {
     "dev": "next dev --turbopack -p 9002",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",

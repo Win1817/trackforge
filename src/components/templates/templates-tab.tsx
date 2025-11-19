@@ -72,7 +72,7 @@ function TemplateForm({ open, setOpen, onSave, existingTemplate }: { open: boole
         if (!tasksByProject[projectId]) {
             const fetchedTasks = await fetchTasks(projectId);
             if (fetchedTasks) {
-                setTasksByProject(prev => ({...prev, [projectId]: fetchedTasks}));
+                setTasksByProject(prev => ({ ...prev, [projectId]: fetchedTasks }));
             }
         }
     };
@@ -238,7 +238,7 @@ export function TemplatesTab() {
     };
 
     return (
-        <div className="container mx-auto">
+        <div className="mx-auto">
             <PageHeader>
                 <div>
                     <PageHeaderHeading>Templates</PageHeaderHeading>

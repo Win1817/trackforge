@@ -1,16 +1,16 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import { Inter } from 'next/font/google'
+import { Inter, JetBrains_Mono } from 'next/font/google'
 import { ClockifyProvider } from '@/hooks/use-clockify';
 import { cn } from '@/lib/utils';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
-
+const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
 export const metadata: Metadata = {
-  title: 'ClockIT',
-  description: 'A professional, web-based Clockify Time Entry Tool.',
+  title: 'TrackForge',
+  description: 'A professional, web-based Time Entry Tool.',
 };
 
 export default function RootLayout({
@@ -24,8 +24,9 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
       </head>
-      <body className={cn("font-body antialiased dark", inter.variable)}>
+      <body className={cn("font-sans antialiased dark", inter.variable, jetbrainsMono.variable)}>
         <ClockifyProvider>
             {children}
         </ClockifyProvider>

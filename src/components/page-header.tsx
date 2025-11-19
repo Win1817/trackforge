@@ -8,7 +8,7 @@ function PageHeader({
   return (
     <header
       className={cn(
-        'flex items-center justify-between space-y-2 mb-6',
+        'flex items-center justify-between space-y-2 pb-4 border-b mb-6',
         className
       )}
       {...props}
