@@ -185,13 +185,6 @@ This project is **MIT Licensed** — see the [LICENSE](LICENSE) file.
 TrackForge — Master your time, streamline your workflow.  
 Third-party application, not affiliated with Clockify.  
 © 2025 Surely Win Dilag. All rights reserved.
-```
-
-```
-
----
-
-This README is **fully production-ready**, covers installation, usage, UI, features, configuration, contribution, branding, and credits.  
 
 If you want, I can **also generate a README with screenshots / diagrams and a mini “Getting Started” tutorial”** ready to paste into GitHub.  
 
