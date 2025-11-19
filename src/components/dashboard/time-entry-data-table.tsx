@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   ColumnDef,
   flexRender,
@@ -34,7 +34,9 @@ import { addDays, format } from 'date-fns';
 
 export function TimeEntryDataTable() {
   const { timeEntries, fetchTimeEntries, loading, isConfigured, setSheetOpen, deleteTimeEntry } = useClockify();
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: 'timeInterval_start', desc: true }
+  ]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
 
   const [date, setDate] = React.useState<DateRange | undefined>({
@@ -63,27 +65,24 @@ export function TimeEntryDataTable() {
       sorting,
       columnFilters,
     },
+    initialState: {
+        pagination: {
+            pageSize: 15,
+        }
+    }
   });
 
   const isLoading = loading['timeEntries'];
 
   return (
     <div className="space-y-4">
-        <div className="flex items-center justify-between">
-            <Input
-              placeholder="Filter by description..."
-              value={(table.getColumn("description")?.getFilterValue() as string) ?? ""}
-              onChange={(event) =>
-                table.getColumn("description")?.setFilterValue(event.target.value)
-              }
-              className="max-w-sm"
-            />
+        <div className="flex items-center justify-between gap-4">
              <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     id="date"
                     variant={"outline"}
-                    className="w-[300px] justify-start text-left font-normal"
+                    className="w-auto sm:w-[260px] justify-start text-left font-normal"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {date?.from ? (
@@ -100,7 +99,7 @@ export function TimeEntryDataTable() {
                     )}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
+                <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     initialFocus
                     mode="range"
@@ -111,6 +110,14 @@ export function TimeEntryDataTable() {
                   />
                 </PopoverContent>
               </Popover>
+            <Input
+              placeholder="Filter by description..."
+              value={(table.getColumn("description")?.getFilterValue() as string) ?? ""}
+              onChange={(event) =>
+                table.getColumn("description")?.setFilterValue(event.target.value)
+              }
+              className="max-w-xs"
+            />
         </div>
       <div className="rounded-md border">
         <Table>
@@ -119,7 +126,7 @@ export function TimeEntryDataTable() {
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} className={header.column.id === 'actions' ? 'text-right' : ''}>
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -134,7 +141,7 @@ export function TimeEntryDataTable() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
+              Array.from({ length: 10 }).map((_, i) => (
                 <TableRow key={i}>
                   {columns.map((column, j) => (
                     <TableCell key={`${i}-${column.id || j}`}>
@@ -150,7 +157,7 @@ export function TimeEntryDataTable() {
                   data-state={row.getIsSelected() && 'selected'}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell key={cell.id} className={cell.column.id === 'actions' ? 'text-right' : ''}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
@@ -167,6 +174,9 @@ export function TimeEntryDataTable() {
         </Table>
       </div>
       <div className="flex items-center justify-end space-x-2 py-4">
+        <div className="flex-1 text-sm text-muted-foreground">
+          {table.getFilteredRowModel().rows.length} row(s).
+        </div>
         <Button
           variant="outline"
           size="sm"
