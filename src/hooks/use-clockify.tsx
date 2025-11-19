@@ -28,7 +28,7 @@ interface ClockifyContextType {
   sheetEntry: TimeEntry | null;
   saveTemplate: (template: Omit<Template, 'id'> & { id?: string }) => void;
   deleteTemplate: (templateId: string) => void;
-  applyTemplate: (templateId: string, date: Date) => Promise<void>;
+  applyTemplate: (templateId: string, dates: Date[]) => Promise<void>;
 }
 
 const ClockifyContext = createContext<ClockifyContextType | undefined>(undefined);
@@ -234,52 +234,54 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     toast({ title: "Success", description: "Template deleted." });
   };
 
-  const applyTemplate = useCallback(async (templateId: string, date: Date) => {
+  const applyTemplate = useCallback(async (templateId: string, dates: Date[]) => {
     const template = templates.find(t => t.id === templateId);
-    if (!template || !isConfigured) return;
+    if (!template || !isConfigured || dates.length === 0) return;
 
     setLoading(prev => ({ ...prev, [`applyTemplate-${templateId}`]: true }));
     let successCount = 0;
     let errorCount = 0;
 
-    for (const entry of template.entries) {
-        const [startHours, startMinutes] = entry.startTime.split(':').map(Number);
-        const [endHours, endMinutes] = entry.endTime.split(':').map(Number);
-        
-        const startDate = new Date(date);
-        startDate.setHours(startHours, startMinutes, 0, 0);
+    for (const date of dates) {
+        for (const entry of template.entries) {
+            const [startHours, startMinutes] = entry.startTime.split(':').map(Number);
+            const [endHours, endMinutes] = entry.endTime.split(':').map(Number);
+            
+            const startDate = new Date(date);
+            startDate.setHours(startHours, startMinutes, 0, 0);
 
-        const endDate = new Date(date);
-        endDate.setHours(endHours, endMinutes, 0, 0);
-        
-        const payload: TimeEntryRequest = {
-            projectId: entry.projectId,
-            taskId: entry.taskId,
-            description: entry.description,
-            start: startDate.toISOString(),
-            end: endDate.toISOString(),
-            billable: entry.billable
-        };
+            const endDate = new Date(date);
+            endDate.setHours(endHours, endMinutes, 0, 0);
+            
+            const payload: TimeEntryRequest = {
+                projectId: entry.projectId,
+                taskId: entry.taskId,
+                description: entry.description,
+                start: startDate.toISOString(),
+                end: endDate.toISOString(),
+                billable: entry.billable
+            };
 
-        try {
-            await apiFetch(`/workspaces/${workspaceId}/time-entries`, {
-                method: 'POST',
-                body: JSON.stringify(payload),
-            });
-            successCount++;
-        } catch (e) {
-            console.error(`Failed to create entry for ${entry.description}`, e);
-            errorCount++;
+            try {
+                await apiFetch(`/workspaces/${workspaceId}/time-entries`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                });
+                successCount++;
+            } catch (e) {
+                console.error(`Failed to create entry for ${entry.description} on ${date.toLocaleDateString()}`, e);
+                errorCount++;
+            }
         }
     }
     
     setLoading(prev => ({ ...prev, [`applyTemplate-${templateId}`]: false }));
     toast({
         title: "Template Applied",
-        description: `${successCount} entries created. ${errorCount > 0 ? `${errorCount} failed.` : ''}`
+        description: `${successCount} entries created across ${dates.length} day(s). ${errorCount > 0 ? `${errorCount} failed.` : ''}`
     });
     fetchTimeEntries();
-  }, [templates, isConfigured, apiFetch, workspaceId, toast, fetchTimeEntries]);
+}, [templates, isConfigured, apiFetch, workspaceId, toast, fetchTimeEntries]);
 
   useEffect(() => {
     if (isConfigured) {

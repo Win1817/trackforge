@@ -209,12 +209,12 @@ function TemplateForm({ open, setOpen, onSave, existingTemplate }: { open: boole
 
 function TemplateCard({ template, onEdit, onCopy, onDelete }: { template: Template, onEdit: () => void, onCopy: () => void, onDelete: () => void }) {
     const { applyTemplate, loading } = useClockify();
-    const [date, setDate] = useState<Date>();
+    const [dates, setDates] = useState<Date[] | undefined>([]);
     const [popoverOpen, setPopoverOpen] = useState(false);
 
     const handleApply = () => {
-        if(date) {
-            applyTemplate(template.id, date);
+        if(dates && dates.length > 0) {
+            applyTemplate(template.id, dates);
             setPopoverOpen(false);
         }
     }
@@ -256,14 +256,15 @@ function TemplateCard({ template, onEdit, onCopy, onDelete }: { template: Templa
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
                       <Calendar
-                        mode="single"
-                        selected={date}
-                        onSelect={setDate}
+                        mode="multiple"
+                        min={0}
+                        selected={dates}
+                        onSelect={setDates}
                         initialFocus
                       />
                        <div className="p-2 border-t">
-                            <Button onClick={handleApply} disabled={!date || loading[`applyTemplate-${template.id}`]} className="w-full">
-                                Apply to {date ? format(date, "LLL dd, y") : '...'}
+                            <Button onClick={handleApply} disabled={!dates || dates.length === 0 || loading[`applyTemplate-${template.id}`]} className="w-full">
+                                Apply to {dates?.length || 0} date(s)
                             </Button>
                        </div>
                     </PopoverContent>
