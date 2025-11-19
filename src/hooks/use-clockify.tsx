@@ -93,7 +93,7 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     return response.json();
   }, [apiKey, isConfigured]);
 
-  const runAsync = useCallback(async <T>(key: string, asyncFn: () => Promise<T>): Promise<T | undefined> => {
+  const runAsync = useCallback(async <T,>(key: string, asyncFn: () => Promise<T>): Promise<T | undefined> => {
     setLoading(prev => ({ ...prev, [key]: true }));
     setError(prev => ({ ...prev, [key]: null }));
     try {
