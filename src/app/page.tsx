@@ -18,9 +18,9 @@ export default function DashboardPage() {
   return (
     <>
       <div className="flex-col md:flex">
-        <div className="border-b bg-primary text-primary-foreground">
+        <div className="border-b">
           <div className="container flex h-16 items-center">
-            <div className="flex items-center text-lg font-bold">
+            <div className="flex items-center text-lg font-bold text-primary">
                 <Logo className="h-6 w-6" />
                 <span className="ml-2">ClockIT</span>
             </div>
