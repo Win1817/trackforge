@@ -26,8 +26,9 @@ interface ClockifyContextType {
   sheetOpen: boolean;
   setSheetOpen: (open: boolean, entry?: TimeEntry | null) => void;
   sheetEntry: TimeEntry | null;
-  saveTemplate: (template: Omit<Template, 'id'>) => void;
+  saveTemplate: (template: Omit<Template, 'id'> & { id?: string }) => void;
   deleteTemplate: (templateId: string) => void;
+  applyTemplate: (templateId: string, date: Date) => Promise<void>;
 }
 
 const ClockifyContext = createContext<ClockifyContextType | undefined>(undefined);
@@ -56,10 +57,40 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
   useEffect(() => {
     const storedApiKey = localStorage.getItem('clockify_api_key');
     const storedWorkspaceId = localStorage.getItem('clockify_workspace_id');
-    const storedTemplates = localStorage.getItem('clockify_templates');
+    const storedTemplates = localStorage.getItem('clockify_templates_v2'); // Use new key for new structure
     if (storedApiKey) setApiKey(storedApiKey);
     if (storedWorkspaceId) setWorkspaceId(storedWorkspaceId);
-    if(storedTemplates) setTemplates(JSON.parse(storedTemplates));
+    if(storedTemplates) {
+      setTemplates(JSON.parse(storedTemplates));
+    } else {
+      // Migration from old single-entry templates
+      const oldTemplates = localStorage.getItem('clockify_templates');
+      if (oldTemplates) {
+        try {
+          const parsedOld = JSON.parse(oldTemplates);
+          if (Array.isArray(parsedOld)) {
+            const newTemplates = parsedOld.map((t: any) => ({
+              id: t.id,
+              name: t.name,
+              entries: [{
+                id: crypto.randomUUID(),
+                projectId: t.projectId,
+                taskId: t.taskId,
+                description: t.description,
+                startTime: '09:00',
+                endTime: '17:00',
+                billable: false,
+              }]
+            }));
+            setTemplates(newTemplates);
+            localStorage.setItem('clockify_templates_v2', JSON.stringify(newTemplates));
+            localStorage.removeItem('clockify_templates');
+          }
+        } catch(e) {
+            console.error("Failed to migrate old templates", e)
+        }
+      }
+    }
   }, []);
 
   const setCredentials = (newApiKey: string, newWorkspaceId: string) => {
@@ -90,6 +121,8 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
       const errorData = await response.json();
       throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
+    // Some DELETE requests return 204 with no content
+    if (response.status === 204) return;
     return response.json();
   }, [apiKey, isConfigured]);
 
@@ -182,19 +215,71 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     return false;
   }, [apiFetch, runAsync, isConfigured, workspaceId, toast, fetchTimeEntries]);
 
-  const saveTemplate = (template: Omit<Template, 'id'>) => {
-    const newTemplates = [...templates, { ...template, id: crypto.randomUUID() }];
+  const saveTemplate = (template: Omit<Template, 'id'> & { id?: string }) => {
+    let newTemplates;
+    if (template.id) {
+        newTemplates = templates.map(t => t.id === template.id ? { ...t, ...template } : t);
+    } else {
+        newTemplates = [...templates, { ...template, id: crypto.randomUUID() }];
+    }
     setTemplates(newTemplates);
-    localStorage.setItem('clockify_templates', JSON.stringify(newTemplates));
+    localStorage.setItem('clockify_templates_v2', JSON.stringify(newTemplates));
     toast({ title: "Success", description: "Template saved." });
   };
 
   const deleteTemplate = (templateId: string) => {
     const newTemplates = templates.filter(t => t.id !== templateId);
     setTemplates(newTemplates);
-    localStorage.setItem('clockify_templates', JSON.stringify(newTemplates));
+    localStorage.setItem('clockify_templates_v2', JSON.stringify(newTemplates));
     toast({ title: "Success", description: "Template deleted." });
   };
+
+  const applyTemplate = useCallback(async (templateId: string, date: Date) => {
+    const template = templates.find(t => t.id === templateId);
+    if (!template || !isConfigured) return;
+
+    setLoading(prev => ({ ...prev, [`applyTemplate-${templateId}`]: true }));
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const entry of template.entries) {
+        const [startHours, startMinutes] = entry.startTime.split(':').map(Number);
+        const [endHours, endMinutes] = entry.endTime.split(':').map(Number);
+        
+        const startDate = new Date(date);
+        startDate.setHours(startHours, startMinutes, 0, 0);
+
+        const endDate = new Date(date);
+        endDate.setHours(endHours, endMinutes, 0, 0);
+        
+        const payload: TimeEntryRequest = {
+            projectId: entry.projectId,
+            taskId: entry.taskId,
+            description: entry.description,
+            start: startDate.toISOString(),
+            end: endDate.toISOString(),
+            billable: entry.billable
+        };
+
+        try {
+            await apiFetch(`/workspaces/${workspaceId}/time-entries`, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            });
+            successCount++;
+        } catch (e) {
+            console.error(`Failed to create entry for ${entry.description}`, e);
+            errorCount++;
+        }
+    }
+    
+    setLoading(prev => ({ ...prev, [`applyTemplate-${templateId}`]: false }));
+    toast({
+        title: "Template Applied",
+        description: `${successCount} entries created. ${errorCount > 0 ? `${errorCount} failed.` : ''}`
+    });
+    fetchTimeEntries();
+  }, [templates, isConfigured, apiFetch, workspaceId, toast, fetchTimeEntries]);
 
   useEffect(() => {
     if (isConfigured) {
@@ -223,7 +308,8 @@ export const ClockifyProvider = ({ children }: { children: React.ReactNode }) =>
     setSheetOpen,
     sheetEntry,
     saveTemplate,
-    deleteTemplate
+    deleteTemplate,
+    applyTemplate,
   };
 
   return <ClockifyContext.Provider value={value}>{children}</ClockifyContext.Provider>;

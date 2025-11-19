@@ -60,10 +60,18 @@ export interface TimeEntryRequest {
     taskId?: string;
 }
 
-export interface Template {
+export interface TemplateEntry {
     id: string;
-    name: string;
     projectId: string;
     taskId?: string;
     description: string;
+    startTime: string; // "HH:mm"
+    endTime: string; // "HH:mm"
+    billable: boolean;
+}
+
+export interface Template {
+    id: string;
+    name: string;
+    entries: TemplateEntry[];
 }

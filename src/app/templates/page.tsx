@@ -1,6 +1,6 @@
 'use client'
 
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Trash, Calendar as CalendarIcon, Copy, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader, PageHeaderHeading, PageHeaderDescription } from '@/components/page-header';
 import { useClockify } from '@/hooks/use-clockify';
@@ -8,73 +8,195 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useEffect, useState } from 'react';
-import { Trash } from 'lucide-react';
+import { Template, TemplateEntry } from '@/lib/types';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { Switch } from '@/components/ui/switch';
+import { Spinner } from '@/components/icons';
+
+
+const templateEntrySchema = z.object({
+    id: z.string(),
+    projectId: z.string().min(1, "Project is required"),
+    taskId: z.string().optional(),
+    description: z.string().min(1, "Description is required"),
+    startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:mm)"),
+    endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:mm)"),
+    billable: z.boolean().default(false),
+});
 
 const templateSchema = z.object({
     name: z.string().min(1, 'Template name is required'),
-    projectId: z.string().min(1, 'Project is required'),
-    taskId: z.string().optional(),
-    description: z.string().min(1, 'Description is required'),
+    entries: z.array(templateEntrySchema).min(1, 'At least one entry is required'),
 });
 
-function TemplateForm({ open, setOpen, onSave }: { open: boolean, setOpen: (open: boolean) => void, onSave: (data: any) => void }) {
+type TemplateFormData = z.infer<typeof templateSchema>;
+
+function TemplateForm({ open, setOpen, onSave, existingTemplate }: { open: boolean, setOpen: (open: boolean) => void, onSave: (data: any) => void, existingTemplate?: Template | null }) {
     const { projects, fetchProjects, fetchTasks } = useClockify();
-    const [tasks, setTasks] = useState<any[]>([]);
-    
-    const form = useForm({
+    const [tasksByProject, setTasksByProject] = useState<Record<string, any[]>>({});
+
+    const form = useForm<TemplateFormData>({
         resolver: zodResolver(templateSchema),
-        defaultValues: { name: '', projectId: '', taskId: '', description: '' },
+        defaultValues: { name: '', entries: [] },
+    });
+    
+    const { fields, append, remove, update } = useFieldArray({
+        control: form.control,
+        name: "entries",
     });
 
     useEffect(() => {
-        if(open) fetchProjects();
+        if (open) fetchProjects();
     }, [open, fetchProjects]);
     
-    const projectId = form.watch('projectId');
-    
     useEffect(() => {
-        if (projectId) {
-            fetchTasks(projectId).then(tasks => setTasks(tasks || []));
+        if(existingTemplate) {
+            form.reset({
+                name: existingTemplate.name,
+                entries: existingTemplate.entries.map(e => ({...e}))
+            });
+            existingTemplate.entries.forEach((entry, index) => {
+                if (entry.projectId) {
+                    handleProjectChange(entry.projectId, index);
+                }
+            })
         } else {
-            setTasks([]);
+            form.reset({ name: '', entries: [] });
         }
-    }, [projectId, fetchTasks]);
+    }, [existingTemplate, form, open]);
 
-    const onSubmit = (data: z.infer<typeof templateSchema>) => {
-        onSave(data);
+    const handleProjectChange = async (projectId: string, index: number) => {
+        if (!tasksByProject[projectId]) {
+            const fetchedTasks = await fetchTasks(projectId);
+            if (fetchedTasks) {
+                setTasksByProject(prev => ({...prev, [projectId]: fetchedTasks}));
+            }
+        }
+    };
+    
+    const addNewEntry = () => {
+        append({
+            id: crypto.randomUUID(),
+            projectId: '',
+            description: '',
+            startTime: '09:00',
+            endTime: '10:00',
+            billable: false,
+        });
+    };
+
+    const onSubmit = (data: TemplateFormData) => {
+        onSave({ id: existingTemplate?.id, ...data });
         setOpen(false);
-        form.reset();
     };
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent>
+            <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>New Template</DialogTitle>
-                    <DialogDescription>Create a new time entry template for quick use.</DialogDescription>
+                    <DialogTitle>{existingTemplate ? 'Edit' : 'New'} Template</DialogTitle>
+                    <DialogDescription>
+                        {existingTemplate ? 'Edit your' : 'Create a new'} daily time entry template. Add multiple entries to build a full day schedule.
+                    </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField control={form.control} name="name" render={({ field }) => (
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="flex-grow overflow-hidden flex flex-col gap-4">
+                         <FormField control={form.control} name="name" render={({ field }) => (
                             <FormItem><FormLabel>Template Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
-                        <FormField control={form.control} name="projectId" render={({ field }) => (
-                            <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={form.control} name="taskId" render={({ field }) => (
-                            <FormItem><FormLabel>Task</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!projectId}><FormControl><SelectTrigger><SelectValue placeholder="Select task" /></SelectTrigger></FormControl><SelectContent>{tasks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={form.control} name="description" render={({ field }) => (
-                             <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <DialogFooter>
+
+                        <div className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-6">
+                            {fields.map((field, index) => {
+                                const projectId = form.watch(`entries.${index}.projectId`);
+                                return (
+                                    <div key={field.id} className="p-4 border rounded-lg relative space-y-4">
+                                        <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => remove(index)}>
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <Controller
+                                                control={form.control}
+                                                name={`entries.${index}.projectId`}
+                                                render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Project</FormLabel>
+                                                    <Select onValueChange={(value) => { field.onChange(value); handleProjectChange(value, index); }} value={field.value}>
+                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
+                                                        <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                                )}
+                                            />
+                                            <Controller
+                                                control={form.control}
+                                                name={`entries.${index}.taskId`}
+                                                render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Task</FormLabel>
+                                                    <Select onValueChange={field.onChange} value={field.value} disabled={!projectId}>
+                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select task" /></SelectTrigger></FormControl>
+                                                        <SelectContent>{(tasksByProject[projectId] || []).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                         <Controller
+                                            control={form.control}
+                                            name={`entries.${index}.description`}
+                                            render={({ field }) => (
+                                                <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field} rows={2} /></FormControl><FormMessage /></FormItem>
+                                            )}
+                                        />
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 items-end">
+                                            <Controller
+                                                control={form.control}
+                                                name={`entries.${index}.startTime`}
+                                                render={({ field }) => (
+                                                    <FormItem><FormLabel>Start Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+                                                )}
+                                            />
+                                            <Controller
+                                                control={form.control}
+                                                name={`entries.${index}.endTime`}
+                                                render={({ field }) => (
+                                                    <FormItem><FormLabel>End Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+                                                )}
+                                            />
+                                            <Controller
+                                                control={form.control}
+                                                name={`entries.${index}.billable`}
+                                                render={({ field }) => (
+                                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm h-10">
+                                                        <FormLabel>Billable</FormLabel>
+                                                        <FormControl>
+                                                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                        </FormControl>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            )}
+                         </div>
+
+                        <Button type="button" variant="outline" onClick={addNewEntry}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Entry
+                        </Button>
+                        
+                        <DialogFooter className="pt-4">
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
                             <Button type="submit">Save Template</Button>
                         </DialogFooter>
@@ -85,9 +207,76 @@ function TemplateForm({ open, setOpen, onSave }: { open: boolean, setOpen: (open
     );
 }
 
+function TemplateCard({ template, onEdit, onCopy, onDelete }: { template: Template, onEdit: () => void, onCopy: () => void, onDelete: () => void }) {
+    const { applyTemplate, loading } = useClockify();
+    const [date, setDate] = useState<Date>();
+    const [popoverOpen, setPopoverOpen] = useState(false);
+
+    const handleApply = () => {
+        if(date) {
+            applyTemplate(template.id, date);
+            setPopoverOpen(false);
+        }
+    }
+    
+    const totalDuration = template.entries.reduce((acc, entry) => {
+        const [startH, startM] = entry.startTime.split(':').map(Number);
+        const [endH, endM] = entry.endTime.split(':').map(Number);
+        const start = new Date(0,0,0,startH, startM);
+        const end = new Date(0,0,0,endH, endM);
+        return acc + (end.getTime() - start.getTime());
+    }, 0);
+    
+    const hours = Math.floor(totalDuration / (1000 * 60 * 60));
+    const minutes = Math.floor((totalDuration % (1000 * 60 * 60)) / (1000 * 60));
+
+
+    return (
+         <Card>
+            <CardHeader>
+                <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">{template.name}</CardTitle>
+                    <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onCopy}><Copy className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onDelete}><Trash className="h-4 w-4 text-destructive" /></Button>
+                    </div>
+                </div>
+                <CardDescription>
+                    {template.entries.length} {template.entries.length === 1 ? 'entry' : 'entries'} | Total: {hours}h {minutes}m
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="flex justify-between items-center">
+                 <Button onClick={onEdit}>Edit Template</Button>
+                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                    <PopoverTrigger asChild>
+                        <Button>
+                            {loading[`applyTemplate-${template.id}`] ? <Spinner className="mr-2 animate-spin"/> : <CalendarIcon className="mr-2 h-4 w-4" />}
+                            Apply
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={setDate}
+                        initialFocus
+                      />
+                       <div className="p-2 border-t">
+                            <Button onClick={handleApply} disabled={!date || loading[`applyTemplate-${template.id}`]} className="w-full">
+                                Apply to {date ? format(date, "LLL dd, y") : '...'}
+                            </Button>
+                       </div>
+                    </PopoverContent>
+                  </Popover>
+            </CardContent>
+        </Card>
+    );
+}
+
 export default function TemplatesPage() {
     const { templates, saveTemplate, deleteTemplate, isConfigured } = useClockify();
-    const [open, setOpen] = useState(false);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
     
     if (!isConfigured) {
         return (
@@ -103,40 +292,60 @@ export default function TemplatesPage() {
             </div>
         )
     }
+    
+    const handleNewTemplate = () => {
+        setEditingTemplate(null);
+        setIsFormOpen(true);
+    }
+    
+    const handleEditTemplate = (template: Template) => {
+        setEditingTemplate(template);
+        setIsFormOpen(true);
+    }
 
-  return (
-    <div className="container mx-auto py-8">
-        <PageHeader>
-            <div>
-                <PageHeaderHeading>Templates</PageHeaderHeading>
-                <PageHeaderDescription>
-                    Manage your reusable time entry templates.
-                </PageHeaderDescription>
+    const handleCopyTemplate = (template: Template) => {
+        const newTemplate = {
+            ...template,
+            name: `${template.name} (Copy)`,
+            id: undefined, // remove id to create a new one
+        }
+        saveTemplate(newTemplate);
+    }
+
+    return (
+        <div className="container mx-auto py-8">
+            <PageHeader>
+                <div>
+                    <PageHeaderHeading>Templates</PageHeaderHeading>
+                    <PageHeaderDescription>
+                        Create and manage your daily time entry schedules.
+                    </PageHeaderDescription>
+                </div>
+                <Button onClick={handleNewTemplate}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    New Template
+                </Button>
+            </PageHeader>
+            
+            <TemplateForm open={isFormOpen} setOpen={setIsFormOpen} onSave={saveTemplate} existingTemplate={editingTemplate} />
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {templates.length > 0 ? templates.map(template => (
+                    <TemplateCard 
+                        key={template.id} 
+                        template={template}
+                        onEdit={() => handleEditTemplate(template)}
+                        onCopy={() => handleCopyTemplate(template)}
+                        onDelete={() => deleteTemplate(template.id)}
+                    />
+                )) : (
+                    <Card className="col-span-full">
+                        <CardContent className="pt-6 text-center text-muted-foreground">
+                            No templates created yet. Click "New Template" to get started.
+                        </CardContent>
+                    </Card>
+                )}
             </div>
-            <Button onClick={() => setOpen(true)}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                New Template
-            </Button>
-        </PageHeader>
-        <TemplateForm open={open} setOpen={setOpen} onSave={saveTemplate} />
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {templates.length > 0 ? templates.map(template => (
-                <Card key={template.id}>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="text-lg">{template.name}</CardTitle>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deleteTemplate(template.id)}>
-                            <Trash className="h-4 w-4 text-destructive" />
-                        </Button>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-sm text-muted-foreground line-clamp-3">{template.description}</p>
-                    </CardContent>
-                </Card>
-            )) : (
-                <p className="text-muted-foreground col-span-full text-center">No templates created yet.</p>
-            )}
         </div>
-    </div>
-  );
+    );
 }
