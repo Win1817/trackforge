@@ -12,18 +12,24 @@ import { TimeEntryForm } from '@/components/dashboard/time-entry-form';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ListPlus, PlusCircle } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { DateRange } from 'react-day-picker';
+import { addDays, format } from 'date-fns';
+import { Input } from '@/components/ui/input';
+import { CalendarIcon } from 'lucide-react';
 
 export default function DashboardPage() {
   const { isConfigured, setSheetOpen } = useClockify();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showBatchForm, setShowBatchForm] = useState(false);
-
+  
   return (
     <>
       <div className="flex-col md:flex">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="border-b">
-            <div className="container flex h-16 items-center px-4">
+            <div className="flex h-16 items-center px-4 md:px-6">
               <div className="flex items-center text-lg font-bold text-primary">
                   <Logo className="h-6 w-6" />
                   <span className="ml-2">ClockIT</span>
@@ -52,7 +58,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-          <div className="container flex-1 space-y-4 p-4 md:p-6">
+          <div className="flex-1 space-y-4 p-4 md:p-6">
               {!isConfigured ? (
                   <Alert className="mb-4 max-w-2xl mx-auto">
                       <AlertTitle>Welcome to ClockIT!</AlertTitle>
