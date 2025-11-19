@@ -11,20 +11,42 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import Link from 'next/link';
 import { useClockify } from '@/hooks/use-clockify';
-import { User, LifeBuoy, LogOut } from 'lucide-react';
+import { User, LifeBuoy, LogOut, Settings } from 'lucide-react';
+import { useMemo } from 'react';
 
 export function UserNav() {
-  const { user, isConfigured } = useClockify();
+  const { user, isConfigured, setSheetOpen } = useClockify();
+
+  const userInitials = useMemo(() => {
+    if (user?.name) {
+      const names = user.name.split(' ');
+      if (names.length > 1) {
+        return `${names[0][0]}${names[names.length - 1][0]}`;
+      }
+      return names[0][0];
+    }
+    return '';
+  }, [user?.name]);
+
+  const handleSettingsClick = () => {
+    // This is a workaround to navigate to the settings tab.
+    // In a real SPA, you'd use a router or state management.
+    const settingsTrigger = document.querySelector('button[data-radix-collection-item][value="settings"]');
+    if (settingsTrigger instanceof HTMLElement) {
+      settingsTrigger.click();
+    }
+  }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={user?.profilePicture} alt={user?.name} />
-            <AvatarFallback>{user?.name ? user.name.charAt(0) : <User />}</AvatarFallback>
+        <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+          <Avatar className="h-10 w-10">
+            {isConfigured && user?.profilePicture && <AvatarImage src={user.profilePicture} alt={user.name} />}
+            <AvatarFallback>
+              {isConfigured && user ? userInitials : <User className="h-5 w-5" />}
+            </AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
@@ -43,24 +65,22 @@ export function UserNav() {
           </>
         ) : (
             <DropdownMenuLabel className="font-normal">
-                <p className="text-sm leading-none text-muted-foreground">Not connected</p>
+                <p className="text-sm leading-none text-muted-foreground">Not Connected</p>
             </DropdownMenuLabel>
         )}
         <DropdownMenuGroup>
-          <Link href="/settings">
-            <DropdownMenuItem>
-              <User className="mr-2 h-4 w-4" />
-              <span>Settings</span>
-            </DropdownMenuItem>
-          </Link>
+          <DropdownMenuItem onClick={handleSettingsClick} className="cursor-pointer">
+            <Settings className="mr-2" />
+            <span>Settings</span>
+          </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled>
-          <LifeBuoy className="mr-2 h-4 w-4" />
+          <LifeBuoy className="mr-2" />
           <span>Support</span>
         </DropdownMenuItem>
         <DropdownMenuItem disabled>
-          <LogOut className="mr-2 h-4 w-4" />
+          <LogOut className="mr-2" />
           <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>

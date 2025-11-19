@@ -9,9 +9,11 @@ import { UserNav } from '@/components/user-nav';
 import { useClockify } from '@/hooks/use-clockify';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TimeEntryForm } from '@/components/dashboard/time-entry-form';
+import { useState } from 'react';
 
 export default function DashboardPage() {
   const { isConfigured } = useClockify();
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
     <>
@@ -36,7 +38,7 @@ export default function DashboardPage() {
                     </AlertDescription>
                 </Alert>
             ) : null}
-          <Tabs defaultValue="dashboard" className="space-y-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList>
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="templates" disabled={!isConfigured}>Templates</TabsTrigger>
