@@ -136,8 +136,8 @@ export function TimeEntryDataTable() {
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {columns.map((column) => (
-                    <TableCell key={column.id as string || i}>
+                  {columns.map((column, j) => (
+                    <TableCell key={`${i}-${column.id || j}`}>
                       <Skeleton className="h-6 w-full" />
                     </TableCell>
                   ))}
