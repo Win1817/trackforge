@@ -179,9 +179,6 @@ This project is **MIT Licensed** — see the [LICENSE](LICENSE) file.
 
 ---
 
-## Footer / Subtitle
-
-```
 TrackForge — Master your time, streamline your workflow.  
 Third-party application, not affiliated with Clockify.  
 © 2025 Surely Win Dilag. All rights reserved.
